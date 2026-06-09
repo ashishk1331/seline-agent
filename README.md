@@ -1,4 +1,6 @@
-# Agent Learning Checklist
+# Telegram AI Agent — Learning Checklist
+
+---
 
 ## Foundation
 - [x] LLM completions via HTTP
@@ -12,18 +14,84 @@
 - [x] Model pinning
 - [x] Config from environment
 
-> **src/ layout** — move package under `src/agent/`, install with `pip install -e ".[dev]"`;
-> prevents accidental imports from project root.
-> **pyproject.toml** — single config replacing `setup.py`, `requirements.txt`, `tox.ini`;
-> declares dependencies, dev extras, and CLI entrypoint.
-> **.env + .env.example** — all secrets and tunables in env vars; `.env.example` committed
-> with empty values as documentation; `.env` always gitignored.
-> **Provider-agnostic transport** — abstract OpenRouter behind one interface so swapping
+> **Provider-agnostic transport** — abstract your LLM provider behind one interface so swapping
 > models means changing one constant, not touching agent logic.
-> **Model pinning** — lock to explicit variant e.g. `zhipuai/glm-4-plus` in `constants.py`,
-> never a floating alias; non-determinism is hard enough without surprise model changes.
-> **Config from environment** — model name, API key, thresholds, prompts all in env vars or
-> config file; nothing hardcoded in source.
+> **Model pinning** — lock to an explicit variant in `constants.py`, never a floating alias;
+> non-determinism is hard enough without surprise model changes.
+> **Config from environment** — model name, API key, bot token, thresholds, prompts all in env
+> vars; nothing hardcoded in source.
+
+---
+
+## Telegram Bot Layer
+
+### Bot Setup & Lifecycle
+- [x] Bot token from BotFather
+- [x] `python-telegram-bot` (async) integration
+- [x] `/start` and `/help` command handlers
+- [ ] Webhook mode (production) vs polling (dev) toggle
+- [ ] Graceful shutdown on SIGINT/SIGTERM
+- [ ] Bot restart recovery — resume pending sessions on startup
+- [ ] Health-check endpoint alongside webhook server
+
+> **Webhook vs polling** — polling is fine for dev; for production, use a webhook behind HTTPS
+> (e.g. via `ngrok` locally, or a VPS/Railway deployment); Telegram requires HTTPS for webhooks.
+> **Graceful shutdown** — flush in-flight conversations and close aiohttp/httpx sessions cleanly
+> on SIGTERM; avoids dropping mid-task agent runs.
+> **Restart recovery** — persist the last conversation state to SQLite or JSONL so the bot can
+> resume or summarise what was in-progress rather than silently forgetting after a redeploy.
+
+### Message Handling
+- [x] Text message handler
+- [ ] Photo / document upload handler (pass to vision or file tools)
+- [ ] Voice message handler → transcribe → agent
+- [ ] `/cancel` command to abort in-flight agent task
+- [ ] Edited message handling (ignore or re-run)
+- [ ] Forwarded message handling
+- [ ] Sticker / reaction handling (optional UX touch)
+
+> **Photo/document handler** — encode uploaded images as base64 and pass to a vision-capable
+> model; for documents, download via Telegram's `getFile`, then pass to file-reading tools.
+> **Voice handler** — download `.ogg` voice note, run Whisper (or OpenAI transcription) to get
+> text, then feed into the normal agent loop; enables fully hands-free use.
+> **`/cancel`** — wire to a `threading.Event` or `asyncio.Event` threaded through the agent
+> loop; returns partial output and cleanup summary on cancel.
+
+### UX & Interaction Patterns
+- [ ] Typing indicator while agent is running (`send_chat_action`)
+- [ ] Message chunking for long responses (Telegram's 4096-char limit)
+- [ ] Markdown / HTML formatting in replies
+- [ ] Inline keyboard buttons for confirmations and choices
+- [ ] Reply keyboard for common commands
+- [ ] Streaming responses via message edits (progressive output)
+- [ ] Progress messages for multi-step tool chains
+
+> **Typing indicator** — call `send_chat_action(ChatAction.TYPING)` at the start of every agent
+> turn; re-call every 4s for long-running tasks; users see the bot "thinking" rather than
+> assuming it crashed.
+> **Message chunking** — split responses at paragraph boundaries, not mid-sentence; send each
+> chunk as a separate message or use `edit_message_text` to stream content progressively.
+> **Streaming via edits** — send a placeholder message, then edit it as the LLM streams tokens;
+> gives a real-time feel without spamming the chat.
+> **Confirmation keyboards** — use `InlineKeyboardMarkup` for destructive tool confirmations
+> (delete, send, overwrite) instead of asking the user to type "yes".
+
+### Multi-User & Session Management
+- [ ] Per-user conversation context (keyed by `chat_id`)
+- [ ] Per-user session isolation (no context leakage between users)
+- [ ] Allowlist / blocklist by `user_id` or `chat_id`
+- [ ] Group chat support (respond only when mentioned / replied to)
+- [ ] Admin commands gated by `user_id`
+- [ ] Concurrent user handling (async per-chat locks)
+
+> **Per-user context** — store conversation history in a dict or DB keyed by `chat_id`; never
+> share context windows between users.
+> **Async locks** — use `asyncio.Lock` per `chat_id` to prevent concurrent messages from the
+> same user interleaving tool calls and corrupting context.
+> **Group chat** — in group mode, only trigger the agent when the bot is @-mentioned or the
+> message is a direct reply; otherwise ignore; prevents noise.
+> **Admin commands** — `/flush`, `/stats`, `/broadcast` etc. should check `user_id` against an
+> `ADMIN_IDS` env var before executing.
 
 ---
 
@@ -34,22 +102,25 @@
 - [x] Fetch and summarize a URL
 - [x] Get current time/weather
 - [x] Tool decorator + registry
+- [ ] Send Telegram message as a tool (agent can message proactively)
+- [ ] Download Telegram file as a tool input
 - [ ] Code execution sandbox
 - [ ] Tool result truncation
 - [ ] Tool call hooks
 - [ ] Toolset scoping
 
-> **Tool decorator + registry** — `@tool` decorator introspects type hints and docstrings via
-> `docstring-parser` to produce OpenAI-compatible schemas automatically; eliminates hand-written
-> `TOOLS` list.
+> **Send message tool** — expose `send_message(chat_id, text)` as a tool so the agent can
+> proactively notify the user mid-task rather than only replying at the end.
+> **Download Telegram file** — given a `file_id`, download via `bot.get_file()` and return the
+> local path; lets the agent process user-uploaded images, PDFs, and audio natively.
 > **Code execution sandbox** — run agent-generated code in an isolated subprocess with resource
 > limits; never exec in the main process.
 > **Tool result truncation** — truncate or summarize large tool outputs before appending to
 > context; unbounded results are the primary cause of context blowout.
 > **Tool call hooks** — pre-hook for validation/logging, post-hook for sanitizing output before
 > it hits context; applied on every tool call.
-> **Toolset scoping** — send only tools relevant to the current task phase, not the full
-> registry every turn; reduces prompt size and model confusion.
+> **Toolset scoping** — send only tools relevant to the current task phase; reduces prompt size
+> and model confusion.
 
 ---
 
@@ -58,57 +129,45 @@
 - [x] Retry with exponential backoff on API failure
 - [x] Graceful error reporting back to LLM
 - [x] Timeout on tool execution
-- [ ] Abort / cancel in-flight requests
+- [ ] Abort / cancel in-flight requests (wired to `/cancel` command)
 - [ ] Tool input schema validation
-- [ ] tool_calls response parsing
 - [ ] Max token budget enforcement
 - [ ] Convergence / loop detection
 - [ ] Structured output enforcement
+- [ ] Telegram API rate limit handling (30 msg/s global, 1 msg/s per chat)
+- [ ] Dead-letter queue for failed Telegram sends
 
-> **Abort / cancel** — `threading.Event` threaded through agent loop, every tool, and every
-> subprocess; `proc.terminate()` on cancel; returns `{"status": "cancelled", "completed_steps":
-> N, "partial_output": "..."}`; cleans up partial files, open handles, and dangling MCP
-> sessions; wired to SIGINT and/or UI button.
-> **Tool input schema validation** — validate model's `tool_calls` arguments against schema
-> before dispatching; return schema errors as tool results, not crashes.
-> **tool_calls response parsing** — GLM/OpenAI-compatible format returns `tool_calls` on the
-> message object, not content blocks; handle both `content` and `tool_calls` fields.
-> **Max token budget** — hard cap on total tokens per session using `prompt_tokens +
-> completion_tokens` from `usage`; halt and surface to user on breach.
-> **Convergence / loop detection** — if the same tool is called with identical args twice
-> consecutively, or N turns pass with no user-visible progress, treat as stuck and surface
-> rather than looping forever.
-> **Structured output enforcement** — for tasks needing reliable JSON, use a dedicated LLM
-> call with explicit JSON instructions rather than hoping the ReAct loop produces valid output.
+> **`/cancel` wiring** — `threading.Event` or `asyncio.Event` threaded through every tool and
+> subprocess; on `/cancel`, terminate in-flight work, return partial output summary to the user.
+> **Telegram rate limits** — Telegram enforces 30 messages/second globally and 1/second per
+> chat; back off with jitter on `RetryAfter` errors; queue outgoing messages rather than
+> firing in a tight loop.
+> **Dead-letter queue** — if a Telegram send fails after retries (e.g. user blocked the bot),
+> log the failed message to a JSONL dead-letter file for later inspection; don't crash the agent.
 
 ---
 
 ## Context Engineering
 - [x] Sliding window compaction
 - [x] Token usage tracking
-- [ ] Tool result masking
 - [x] Auxiliary model routing
-- [ ] Persist context across sessions
+- [ ] Per-chat persistent context (SQLite or JSONL)
+- [ ] Tool result masking
 - [ ] Semantic memory
 - [ ] Entity extraction
 - [ ] Event sourcing for agent state
+- [ ] Session summary on `/reset` or idle timeout
 
-> **Sliding window compaction** — summarize old messages when approaching token limit; rebuild
-> context as `[system] + [summary] + [recent N messages]`.
-> **Token usage tracking** — OpenRouter returns `prompt_tokens`, `completion_tokens`,
-> `total_tokens` under `response["usage"]`; track all three separately, not just total.
+> **Per-chat persistence** — save compacted context per `chat_id` to SQLite at end of each
+> turn; load on the next message; users expect the bot to remember across app restarts.
+> **Idle timeout** — after N minutes of inactivity, compact and archive the session; on next
+> message, start fresh but offer a one-line summary of the last session.
+> **Session summary on `/reset`** — before wiping context, send a brief bullet-point summary of
+> what was accomplished; gives the user a natural checkpoint.
 > **Tool result masking** — after a tool result is consumed, replace full content with a short
 > reference e.g. `[web_fetch result used]`; frees context budget for future turns.
-> **Auxiliary model routing** — route compaction and summarization to a cheaper GLM variant
-> e.g. `glm-z1-flash`; reserve main model for reasoning; same OpenRouter endpoint.
-> **Persist context** — save compacted context to JSONL or SQLite at end of session; load on
-> next session start; save the already-compacted form, not raw history.
-> **Semantic memory** — embed past messages and retrieve relevant ones by similarity; SQLite
-> FTS5 is zero-dependency and sufficient before reaching for a vector DB.
-> **Entity extraction** — track key nouns across turns: file paths, variable names, decisions,
-> error messages; persist separately from raw message history.
-> **Event sourcing** — append-only JSONL log of every input, tool call, tool result, and model
-> output per session; enables replay and crash recovery; lives in `logs/` (gitignored).
+> **Entity extraction** — track key nouns across turns: file paths, variable names, decisions;
+> persist separately from raw message history for fast retrieval.
 
 ---
 
@@ -119,56 +178,40 @@
 - [ ] Self-critique
 - [ ] Confidence / uncertainty signaling
 - [ ] Phase gating
+- [ ] Clarification requests before long tasks
 
-> **Chain-of-thought** — instruct the model to think step by step before choosing a tool or
-> responding; one line in the system prompt, high leverage, no code changes needed.
+> **Clarification before long tasks** — if the user's intent is ambiguous, ask one clarifying
+> question before starting a multi-step tool chain; cheaper than executing the wrong plan and
+> having to undo it.
 > **ReAct loop** — Reason → Act → Observe → repeat; model emits a `Thought:` before every
 > tool call and the result comes back as an `Observation:`; loop continues until no tool call
 > is emitted.
-> **Task decomposition** — explicit planning step before execution; model emits a numbered
-> plan, then executes step by step and checks off as it goes.
-> **Self-critique** — after generating a response, make a second LLM call asking if it fully
-> answers the request; fix before returning to user.
-> **Confidence signaling** — prompt the model to say "I'm not sure" rather than hallucinate;
-> treat low-confidence tool selections as clarification requests.
-> **Phase gating** — break long tasks into phases (plan → gather → execute → verify); do not
-> allow execution before planning is confirmed; prevents premature irreversible actions.
+> **Phase gating** — break long tasks into phases (plan → gather → execute → verify); confirm
+> the plan with the user via an inline keyboard before execution; prevents premature irreversible
+> actions.
 
 ---
 
 ## Guardrails & Safety
 - [ ] Prompt injection detection
 - [ ] Indirect injection in tool results
-- [ ] Excessive agency prevention
+- [ ] Excessive agency prevention (confirm destructive actions via inline keyboard)
 - [ ] Tool permission tiers
-- [ ] MCP tool description as untrusted input
-- [ ] Cross-server escalation prevention
 - [ ] PII / secrets detection
 - [ ] Hardline command blocklist
 - [ ] Input guardrail pipeline
-- [ ] Circuit breaker
+- [ ] Circuit breaker (cost/turn/time threshold)
+- [ ] Per-user rate limiting (prevent abuse)
+- [ ] Message content filtering before sending to Telegram
 
-> **Prompt injection detection** — web pages, files, and command output can contain adversarial
-> instructions; scan tool outputs before appending to context (OWASP LLM01:2025).
-> **Indirect injection** — after a tool call, verify the model's next intended action still
-> aligns with the original user goal; a fetched page could redirect the agent.
-> **Excessive agency** — require explicit per-action confirmation for destructive or irreversible
-> tool calls: delete, overwrite, network POST (OWASP LLM06:2025).
-> **Tool permission tiers** — classify tools in the registry: read-only (auto), write/local
-> (log + proceed), destructive (confirm); enforced in registry, not ad-hoc per call.
-> **MCP tool descriptions** — tool metadata from third-party MCP servers is supply-chain input,
-> not developer-authored config; scan for embedded directives before injecting into prompt
-> (OWASP LLM05 / CVE-2025-54136).
-> **Cross-server escalation** — validate that multi-tool sequences across MCP servers don't
-> exceed the permissions of any single server involved.
-> **PII / secrets detection** — scan outputs and tool results for credentials, tokens, and
-> personal data before logging or returning to user.
-> **Command blocklist** — shell tool maintains a hardcoded blocklist of commands that can never
-> run regardless of model instruction e.g. `rm -rf /`, `git push --force`.
+> **Confirmation via inline keyboard** — for destructive or irreversible tool calls, send an
+> `InlineKeyboardMarkup` with Yes/No buttons; do not proceed until the user taps Yes.
+> **Per-user rate limiting** — track messages per `user_id` per minute; return a friendly
+> throttle message rather than processing a flood; prevents abuse and runaway API costs.
+> **Content filtering before send** — scan agent output for secrets, credentials, or PII before
+> sending to Telegram; Telegram messages are logged server-side and may be forwarded by users.
 > **Input guardrail pipeline** — validate user input before it enters context: length limits,
 > topic boundary, injection pattern detection; cheap regex first, LLM classifier only if needed.
-> **Circuit breaker** — halt and surface to user if cost, turn count, or wall-clock time
-> exceeds configured threshold.
 
 ---
 
@@ -177,17 +220,8 @@
 ### Connection & Discovery
 - [ ] MCP client implementation
 - [ ] Runtime tool discovery
-- [ ] MCP server config file
+- [ ] MCP server config file (`mcp_servers.yaml`)
 - [ ] Server health check on startup
-
-> **MCP client** — connect to servers via STDIO (local process) or HTTP/SSE (remote); query
-> `tools/list` at handshake and merge schemas into tool registry dynamically.
-> **Runtime tool discovery** — MCP tools and native tools go through the same dispatch path;
-> no special casing in the agent loop.
-> **MCP server config** — declare servers in `mcp_servers.yaml` with transport type,
-> command/URL, and env var references for secrets; no addresses hardcoded in source.
-> **Health check on startup** — verify each configured MCP server responds to `initialize`
-> before the session starts; surface dead servers as warnings, don't silently drop their tools.
 
 ### Access Control
 - [ ] Tool allowlist per session
@@ -195,46 +229,36 @@
 - [ ] OAuth 2.1 / API key management
 - [ ] Least-privilege server scope
 
-> **Tool allowlist** — maintain explicit approved tool names; reject any tool call not on the
-> allowlist even if a server advertises it; prevents rogue tool advertisement mid-session.
-> **MCP permission tiers** — apply the same read/write/destructive classification to MCP tools
-> as native tools; don't auto-approve MCP write tools just because the server is trusted.
-> **Auth management** — store MCP credentials in env vars or secrets file, never in the server
-> config itself; rotate on a schedule.
-> **Least-privilege scope** — connect each MCP server with minimum permissions it needs; a web
-> search server should not have filesystem access even if the server supports it.
-
 ### Security
 - [ ] Tool description sanitization
 - [ ] Tool description hash pinning
 - [ ] Indirect injection in MCP tool results
 - [ ] MCP server version pinning
-- [ ] mcp-scan audit
 - [ ] No auto-approval for MCP destructive tools
-
-> **Description sanitization** — scan MCP tool names, descriptions, and input schemas for
-> embedded directives before injecting into prompt; this surface looks like config but the
-> model reads it as instructions.
-> **Hash pinning** — store a hash of each server's tool descriptions at first connection; abort
-> if they change between sessions without a version bump; silent description changes are the
-> primary tool poisoning vector.
-> **MCP result injection** — apply the same injection scanning to MCP tool results as to
-> `web_fetch` output before appending to context.
-> **Server version pinning** — treat MCP servers like dependencies; pin to a specific version
-> or commit; a server update that silently changes tool descriptions is a supply-chain risk.
-> **mcp-scan** — run Invariant Labs' `mcp-scan` against server configs periodically; checks
-> for known poisoning patterns, rug-pulls, and cross-server escalation risks.
-> **No auto-approval** — tool poisoning achieves 84% success rate in testing when auto-approval
-> is on; require explicit confirmation for any MCP tool that writes, deletes, sends, or posts.
 
 ### Observability
 - [ ] Log MCP tool calls separately
 - [ ] Track MCP tool latency
 
-> **MCP call logging** — tag JSONL entries with `mcp_server: server_name` to distinguish
-> MCP-sourced calls from native tool calls in post-session analysis.
-> **MCP latency tracking** — remote MCP servers add network latency; measure per-server p50/p99
-> and use to set realistic per-server timeouts rather than a global default.
+> **MCP + Telegram confirmations** — for any MCP tool in the write/destructive tier, send an
+> `InlineKeyboardMarkup` confirm prompt to the user before dispatching; never auto-approve.
+
+---
+
+## Multi-User & Deployment
+- [ ] Dockerized deployment
+- [ ] Environment-based config (no secrets in image)
+- [ ] Process supervisor (systemd / supervisord / Railway)
+- [ ] Auto-restart on crash
+- [ ] Rolling deploys without dropping active sessions
+- [ ] Separate staging bot token for testing
+
+> **Dockerized** — package the bot as a Docker image; use `CMD ["uv", "run", "agent"]`; inject
+> all secrets via environment variables at runtime, never baked into the image.
+> **Staging bot token** — maintain a separate `@YourBot_staging` bot for testing; route to it
+> via a `BOT_TOKEN_STAGING` env var; never test against the production bot.
+> **Rolling deploys** — drain active sessions before restarting (or use `/notify` to warn
+> active users of a brief restart); SQLite-persisted context ensures they can continue after.
 
 ---
 
@@ -243,129 +267,66 @@
 - [ ] Orchestrator / worker pattern
 - [ ] Shared context or message passing
 - [ ] Agent roles + permissions model
-- [ ] Human-in-the-loop approval step
+- [ ] Human-in-the-loop approval via Telegram inline keyboard
 - [ ] Subagent isolation
 
-> **Subagents** — spawn a fresh agent instance with its own context for a bounded subtask;
-> collect and return only the result, not the full conversation.
-> **Orchestrator / worker** — same OpenRouter/GLM endpoint, different system prompts and tool
-> subsets per role; orchestrator plans and delegates, workers execute.
-> **Message passing** — agents communicate via a shared JSONL file or in-memory queue; never
-> share raw context windows between agents.
-> **Roles + permissions** — each agent role gets only the tools it needs; a research worker
-> shouldn't have `write_file`; a file worker shouldn't have `web_search`.
-> **Human-in-the-loop** — checkpoint requiring human confirmation before high-stakes
-> orchestrator decisions e.g. deploying, deleting, sending.
-> **Subagent isolation** — pass only the task handoff artifact to subagents, not full parent
-> context; prevents 4–15x token multiplication in multi-agent runs.
+> **Human-in-the-loop via Telegram** — orchestrator sends a summary and an
+> `InlineKeyboardMarkup` approval prompt to the user before high-stakes actions; no
+> out-of-band approval mechanism needed since Telegram is already the interface.
 
 ---
 
 ## Skills System
 
 ### Storage & Format
-- [ ] Skills directory
-- [ ] SKILL.md format
-- [ ] Skills index
-
-> **Skills directory** — store skills as `SKILL.md` files under `skills/` at project root
-> (outside `src/`); gittrack as data, not library code.
-> **SKILL.md format** — YAML frontmatter: `name`, `description`, `triggers`, `version`;
-> sections: When to Use, Procedure, Pitfalls, Verification; compatible with agentskills.io.
-> **Skills index** — `skills_index.json` lists all skill names, descriptions, and trigger
-> keywords; agent scans index to decide what to load, not the full files; keeps token cost low.
+- [ ] Skills directory (`skills/` at project root)
+- [ ] `SKILL.md` format with YAML frontmatter
+- [ ] Skills index (`skills_index.json`)
+- [ ] Telegram-specific skills (e.g. `send-report`, `poll-creation`, `media-download`)
 
 ### Loading & Activation
-- [ ] Progressive disclosure
-- [ ] Trigger matching
-- [ ] Skill injection point
-
-> **Progressive disclosure** — inject only the skills index at session start; load full skill
-> content only when task matches its triggers; never inject all skills simultaneously.
-> **Trigger matching** — keyword match first (cheap), LLM classifier second (only if ambiguous);
-> check before each ReAct turn.
-> **Injection point** — inject loaded skill as a system message immediately before the relevant
-> ReAct step; not at session start, not as a user message.
+- [ ] Progressive disclosure (index only at session start)
+- [ ] Trigger matching (keyword → LLM classifier)
+- [ ] Skill injection point (before relevant ReAct step)
 
 ### Creation & Improvement
-- [ ] Autonomous skill creation
-- [ ] Skill refinement
-- [ ] Manual skill authoring
-
-> **Autonomous creation** — after a task requiring 5+ tool calls, prompt the agent to write a
-> `SKILL.md` capturing the procedure; store in `skills/` for future reuse.
-> **Skill refinement** — on failed or significantly deviated execution, append a new entry to
-> the skill's Pitfalls section; skills improve through use rather than being rewritten wholesale.
-> **Manual authoring** — hand-write skills for known recurring workflows; highest quality since
-> you control the procedure exactly.
-
-### Lifecycle Management
-- [ ] Skill curator job
-- [ ] Skill versioning
-- [ ] External skill directories
-- [ ] agentskills.io compatibility
-
-> **Curator job** — periodic task that grades skills by success rate, consolidates duplicates,
-> and deprecates skills unused for N days; run on a schedule e.g. every 7 days.
-> **Skill versioning** — `version` field in YAML frontmatter; bump on significant procedure
-> changes; enables rollback if a refinement degrades performance.
-> **External skill dirs** — support additional skill directories (project-local, team-shared,
-> agentskills.io installs); resolved in order with local taking precedence.
-> **agentskills.io compatibility** — following the SKILL.md spec gives access to 700+ community
-> skills installable without reinventing every workflow.
+- [ ] Autonomous skill creation after complex tasks
+- [ ] Skill refinement on failure
+- [ ] Manual skill authoring for known workflows
 
 ---
 
 ## Observability & Cost
-- [ ] Structured logging
-- [ ] Per-session cost tracking
+- [ ] Structured JSONL logging per `chat_id`
+- [ ] Per-session cost tracking (reported to user on `/stats`)
 - [ ] Latency tracking per tool call
 - [ ] Skills hit rate tracking
-- [ ] Prompt diff tracking
 - [ ] OpenRouter headers logging
 - [ ] Action dry-run mode
-- [ ] Sandboxed filesystem
+- [ ] Sandboxed filesystem for file writes
+- [ ] Admin `/stats` command showing total cost, active sessions, error rate
 
-> **Structured logging** — every tool call: name, input, output, latency, token delta as JSONL
-> under `logs/`; `logs/` is gitignored.
-> **Cost tracking** — compute cost from `prompt_tokens` and `completion_tokens` using
-> OpenRouter's per-model pricing for your GLM variant; report at end of session.
-> **Latency tracking** — measure per-tool call duration; use data to set realistic timeouts
-> rather than a global default.
-> **Skills hit rate** — log which skills activated per session; zero-activation skills over 30
-> days are pruning candidates; high-activation skills are candidates for permanent system prompt
-> inclusion.
-> **Prompt diff tracking** — log before/after on every system prompt or compaction prompt
-> change; correlate with eval regressions when quality drops.
-> **OpenRouter headers** — log `HTTP-Referer` and model string sent per request; confirms which
-> GLM variant OpenRouter actually routed to; useful when debugging unexpected behavior.
-> **Dry-run mode** — agent describes intended actions before executing; user confirms; essential
-> when adding new tools or running in unfamiliar environments.
-> **Sandboxed filesystem** — constrain `write_file` to a working directory; agent cannot write
-> outside it regardless of what path the model requests.
+> **Per-chat JSONL logs** — tag every log entry with `chat_id` and `user_id`; enables per-user
+> cost attribution and debugging without mixing up conversations.
+> **`/stats` command** — admin-only command that reports total API spend, number of active
+> sessions, tool call counts, and error rate for the current day; pulled from the JSONL logs.
+> **Dry-run mode** — agent describes its intended actions and sends them via Telegram before
+> executing; user taps Confirm; essential when onboarding the bot to a new environment.
 
 ---
 
 ## Evals
-- [ ] Task benchmark
+- [ ] Task benchmark (`evals/tasks.jsonl`)
 - [ ] Pass/fail scoring
 - [ ] Tool call accuracy + hallucination rate
-- [ ] Regression testing
+- [ ] Regression testing on prompt changes
 - [ ] Latency + cost per run
-- [ ] Adversarial test cases
+- [ ] Adversarial test cases (prompt injection, malformed input)
 - [ ] CI integration
+- [ ] Telegram-specific eval: message chunking, inline keyboard flows, voice round-trip
 
-> **Task benchmark** — small set of tasks the agent should complete end-to-end; stored as
-> `evals/tasks.jsonl`; covers happy path, edge cases, and multi-step workflows.
-> **Pass/fail scoring** — each task has a verifiable expected outcome; scored automatically
-> where possible, manually where not.
-> **Tool call accuracy** — measure whether the agent calls the right tool with the right args;
-> hallucination rate measures how often the model invents facts not in tool results.
-> **Regression testing** — run the full eval suite before and after any prompt or tool schema
-> change; a quality drop is a regression, treat it like a failing test.
-> **Latency + cost** — track OpenRouter-reported token costs per GLM variant so you can compare
-> model upgrades on both quality and cost axes simultaneously.
-> **Adversarial cases** — include prompt injection attempts, conflicting tool results, and
-> malformed inputs in the benchmark; these catch guardrail regressions.
-> **CI integration** — eval suite triggers automatically on every prompt or tool schema change;
-> not a manual step.
+> **Telegram-specific evals** — test that long responses chunk correctly, that inline keyboard
+> confirmation flows complete end-to-end, and that voice → transcribe → agent → reply round
+> trips within an acceptable latency budget.
+> **Regression testing** — run the full eval suite before and after any system prompt, tool
+> schema, or handler change; a quality drop is a regression, treat it like a failing test.
