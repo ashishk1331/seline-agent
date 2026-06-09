@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 from .config import CONFIG
+from .llm import complete
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -10,8 +11,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text:
         text = update.message.text.lower()
-        print(text)
-        await update.message.reply_text(f"You said: {text}")
+        response = complete(text)
+        if response:
+            await update.message.reply_text(response)
 
 def telegram_loop():
     app = ApplicationBuilder().token(CONFIG.TELEGRAM_BOT_TOKEN).build()
