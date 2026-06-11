@@ -23,7 +23,6 @@ TINYFISH_HEADERS = {
 }
 
 THINKING_PHRASES = [
-    "doodling...",
     "soch rahi hoon...",
     "ek second...",
     "haan haan, dekh rahi hoon...",
