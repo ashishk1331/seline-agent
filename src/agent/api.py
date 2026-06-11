@@ -1,17 +1,15 @@
-import requests as R
+import httpx
+from .logger import log
 
 
-def fetch(url, headers, payload):
-    resp = R.post(
-        url,
-        headers=headers,
-        json=payload,
-    )
+async def fetch(url, headers, payload):
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, headers=headers, json=payload)
 
-    if resp.status_code != 200:
-        print(
-            f"[ERROR] API request failed with status code {resp.status_code}: {resp.text}"
-        )
-        return None
+        if resp.status_code != 200:
+            log.error(
+                f"API request failed with status code {resp.status_code}: {resp.text}"
+            )
+            return None
 
-    return resp.json()
+        return resp.json()

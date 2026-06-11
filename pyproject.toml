@@ -6,12 +6,14 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "docstring-parser>=0.18.0",
+    "httpx>=0.28.1",
     "human-id>=0.2.0",
     "prompt-toolkit>=3.0.52",
     "python-dotenv>=1.2.2",
     "python-telegram-bot>=22.7",
     "requests>=2.34.2",
     "rich>=15.0.0",
+    "ruff>=0.15.17",
     "sounddevice>=0.5.5",
     "supertonic>=1.2.3",
 ]

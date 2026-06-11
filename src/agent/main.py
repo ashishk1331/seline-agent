@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
+
 load_dotenv()
 
-from .telegram_agent import telegram_loop
+from .gateway import telegram_loop
 
 
 def main():

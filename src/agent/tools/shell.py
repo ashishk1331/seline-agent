@@ -1,4 +1,5 @@
 from ..tools.registry import register_tool
+from ..logger import log
 import subprocess as SP
 
 
@@ -12,9 +13,9 @@ def run_command(command):
     result = SP.run(command, shell=True, capture_output=True, text=True, timeout=30)
 
     if result.returncode != 0:
-        print(
-            f"[TOOL] [ERROR] Command failed with return code {result.returncode}: {result.stderr}"
+        log.error(
+            f"Command failed with return code {result.returncode}: {result.stderr}"
         )
     else:
-        print(f'[TOOL] [RESULT_RAN] "{command}" = \n{result.stdout}')
+        log.info(f"Command succeeded: {command}")
     return result.stdout or result.stderr

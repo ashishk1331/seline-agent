@@ -1,12 +1,18 @@
-from .prompts import get_system_prompt, get_compaction_prompt
-from .config import CONFIG
-from .constants import HEADERS, COMPACTION_PAYLOAD
-from .api import fetch
+from ..prompts import get_system_prompt, get_compaction_prompt
+from ..config import CONFIG
+from ..constants import HEADERS, COMPACTION_PAYLOAD
+from ..api import fetch
+from ..logger import log
+from .session import Session
 
 
-class ContextManager:
+class ContextManager(Session):
     def __init__(self):
-        self.context = [{"role": "system", "content": get_system_prompt()}]
+        super().__init__()
+        self.context = [
+            {"role": "system", "content": get_system_prompt()},
+            *self._load_messages_from_session(),
+        ]
         self.compaction_context = [
             {"role": "system", "content": get_compaction_prompt()}
         ]
@@ -18,6 +24,7 @@ class ContextManager:
         if usage:
             self.current_tokens = usage["total_tokens"]
             self.detect_and_compact()
+        self._append_message_to_session(message)
 
     def get_context(self):
         return self.context
@@ -53,7 +60,7 @@ class ContextManager:
         )
 
         if not data:
-            print("[ERROR] No response from API during compaction.")
+            log.error("No response from API during compaction.")
             return None, None
 
         summary = data["choices"][0]["message"]["content"]
@@ -65,12 +72,12 @@ class ContextManager:
             return
 
         if len(self.context) <= CONFIG.COMPACTION_RECENT_N + 1:
-            print(
+            log.error(
                 f"[CONTEXT] Context length is {len(self.context)}. Not enough messages to compact."
             )
             return
 
-        print(f"[CONTEXT] Auto-compaction triggered.")
+        log.info(f"[CONTEXT] Auto-compaction triggered.")
 
         recent_messages = self.context[-CONFIG.COMPACTION_RECENT_N :]
         previous_messages = self.context[1 : -CONFIG.COMPACTION_RECENT_N]
@@ -82,7 +89,7 @@ class ContextManager:
         )
 
         if summary is None:
-            print(f"[CONTEXT] Compaction failed. Keeping existing context.")
+            log.error(f"[CONTEXT] Compaction failed. Keeping existing context.")
             return
 
         self.context = (
@@ -97,7 +104,9 @@ class ContextManager:
         )
         if usage:
             self.current_tokens = usage["total_tokens"]
+        
+        self._overwrite_messages_in_session(self.context[1:])
 
-        print(
+        log.info(
             f"[CONTEXT] Compaction completed. {prev_token_count} -> {self.current_tokens}"
         )

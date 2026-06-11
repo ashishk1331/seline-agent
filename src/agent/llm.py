@@ -1,5 +1,4 @@
 import json as J
-import requests as R
 from .tools import TOOLS_MAP, TOOLS
 from rich.console import Console
 from rich.markdown import Markdown
@@ -7,28 +6,29 @@ from .constants import HEADERS, BASIC_PAYLOAD
 from .config import CONFIG
 from .context import ContextManager
 from .api import fetch
+from .logger import log
 
 console = Console()
 context = ContextManager()
 
 
-def complete(message, max_tool_calls=CONFIG.MAX_TOOL_CALLS):
+async def complete(message, max_tool_calls=CONFIG.MAX_TOOL_CALLS):
 
     if max_tool_calls <= 0:
-        print("[ERROR] Maximum tool call limit reached.")
+        log.error("Maximum tool call limit reached.")
         return
 
     if message is not None:
         context.append({"role": "user", "content": message})
 
-    data = fetch(
+    data = await fetch(
         CONFIG.OPENROUTER_URL,
         headers=HEADERS,
         payload=BASIC_PAYLOAD | {"messages": context.get_context(), "tools": TOOLS},
     )
 
     if not data:
-        print("[ERROR] No response from API.")
+        log.error("No response from API.")
         return
 
     message = data["choices"][0]["message"]
@@ -49,15 +49,15 @@ def complete(message, max_tool_calls=CONFIG.MAX_TOOL_CALLS):
                     "content": str(result),
                 }
             )
-        complete(None, max_tool_calls - 1)
+        return await complete(None, max_tool_calls - 1)
     else:
         context.append({"role": "assistant", "content": message["content"]}, usage)
-        console.print(Markdown(message["content"]))
-    
+        log.info(f"[bold green]Assistant[/]: {message['content']}")
+
     return message["content"]
 
 
 def debug_context():
-    print(
+    log.info(
         f"---\n[CONTEXT STARTS]\n\n{J.dumps(context.get_context(), indent=2)}\n\n[CONTEXT ENDS]\n---"
     )

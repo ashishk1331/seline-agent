@@ -4,6 +4,7 @@ import requests as R
 from ..constants import TINYFISH_HEADERS
 from agent.utils import top_three
 from ..config import CONFIG
+from ..logger import log
 
 
 @register_tool(max_chars=-1)
@@ -17,19 +18,17 @@ def web_search(query: str):
     resp = R.get(f"{CONFIG.TINYFISH_SEARCH_URL}?{query}", headers=TINYFISH_HEADERS)
 
     if resp.status_code != 200:
-        print(
-            f"[TOOL] [ERROR] Search failed with status code {resp.status_code}: {resp.text}"
-        )
+        log.error(f"web_search failed [{resp.status_code}]: {resp.text}")
         return f"Failed to search for {query}"
 
     data = resp.json()
-    print(
-        f'[TOOL] [WEB_SEARCH_RESULT] "{query}" = {", ".join(top_three([result["site_name"].lstrip("www.") for result in data["results"]]))}'
+    sites = ", ".join(
+        top_three([r["site_name"].lstrip("www.") for r in data["results"]])
     )
+    log.info(f"web_search [bold cyan]{query}[/] → {sites}")
 
-    results = data["results"]
-    return '\n'.join(
-        f'[{result["title"]}]({result["url"]}) - {result["snippet"]}' for result in results
+    return "\n".join(
+        f"[{r['title']}]({r['url']}) - {r['snippet']}" for r in data["results"]
     )
 
 
@@ -43,18 +42,16 @@ def web_fetch(url):
     resp = R.post(
         CONFIG.TINYFISH_FETCH_URL,
         headers=TINYFISH_HEADERS,
-        json={
-            "urls": [url],
-            "format": "markdown",
-        },
+        json={"urls": [url], "format": "markdown"},
     )
 
     if resp.status_code != 200:
-        print(
-            f"[TOOL] [ERROR] Fetch failed with status code {resp.status_code}: {resp.text}"
-        )
+        log.error(f"web_fetch failed [{resp.status_code}]: {resp.text}")
         return f"Failed to fetch {url}"
 
     data = resp.json()
-    print(f"[TOOL] [WEB_FETCH_RESULT] {url} = {data['results'][0]['description']}")
-    return data["results"][0]['text']
+    result = data["results"][0]
+    desc = result["description"] if result["description"] else result["title"]
+    log.info(f"web_fetch [bold cyan]{url}[/] → {desc}")
+
+    return result["text"]
