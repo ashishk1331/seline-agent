@@ -77,7 +77,7 @@ class ContextManager(Session):
             )
             return
 
-        log.info(f"[CONTEXT] Auto-compaction triggered.")
+        log.info("[CONTEXT] Auto-compaction triggered.")
 
         recent_messages = self.context[-CONFIG.COMPACTION_RECENT_N :]
         previous_messages = self.context[1 : -CONFIG.COMPACTION_RECENT_N]
@@ -89,7 +89,7 @@ class ContextManager(Session):
         )
 
         if summary is None:
-            log.error(f"[CONTEXT] Compaction failed. Keeping existing context.")
+            log.error("[CONTEXT] Compaction failed. Keeping existing context.")
             return
 
         self.context = (
@@ -104,7 +104,7 @@ class ContextManager(Session):
         )
         if usage:
             self.current_tokens = usage["total_tokens"]
-        
+
         self._overwrite_messages_in_session(self.context[1:])
 
         log.info(

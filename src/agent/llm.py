@@ -1,7 +1,6 @@
 import json as J
 from .tools import TOOLS_MAP, TOOLS
 from rich.console import Console
-from rich.markdown import Markdown
 from .constants import HEADERS, BASIC_PAYLOAD
 from .config import CONFIG
 from .context import ContextManager
@@ -40,7 +39,7 @@ async def complete(message, max_tool_calls=CONFIG.MAX_TOOL_CALLS):
             name = tool_call["function"]["name"]
             args = J.loads(tool_call["function"]["arguments"])
 
-            result = TOOLS_MAP[name](**args)
+            result = await TOOLS_MAP[name](**args)
 
             context.append(
                 {

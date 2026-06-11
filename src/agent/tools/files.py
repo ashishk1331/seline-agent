@@ -1,7 +1,7 @@
 from ..tools.registry import register_tool
 
 
-@register_tool()
+@register_tool(status_message="Reading $path")
 def read_file(path):
     """Read the contents of a file.
 
@@ -12,7 +12,7 @@ def read_file(path):
         return file.read()
 
 
-@register_tool()
+@register_tool(status_message="Writing $path")
 def write_file(path, content):
     """Write content to a file, replacing any existing content.
 

@@ -1,4 +1,5 @@
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -9,6 +10,7 @@ from telegram.ext import (
 from ..config import CONFIG
 from ..llm import complete
 from ..logger import log
+from .status import GATEWAY_STATUS
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -21,7 +23,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
 
-    placeholder = await update.message.reply_text("thinking...")
+    GATEWAY_STATUS.set_update(update)
+    await GATEWAY_STATUS.start()
 
     user_message = update.message.text
     log.info(f"Received message: {user_message}")
@@ -29,8 +32,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     response = await complete(user_message)
 
     if response:
-        await placeholder.delete()
-        await update.message.reply_text(response)
+        await GATEWAY_STATUS.stop()
+        await update.message.reply_text(response, parse_mode=ParseMode.MARKDOWN)
 
 
 def telegram_loop():

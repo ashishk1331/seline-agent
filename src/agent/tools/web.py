@@ -7,7 +7,7 @@ from ..config import CONFIG
 from ..logger import log
 
 
-@register_tool(max_chars=-1)
+@register_tool(max_chars=-1, status_message="Searching for \"$query\"")
 def web_search(query: str):
     """Search the web. Use this to find information or discover URLs.
 
@@ -32,7 +32,7 @@ def web_search(query: str):
     )
 
 
-@register_tool(max_chars=8_000)
+@register_tool(max_chars=8_000, status_message="Fetching $url")
 def web_fetch(url):
     """Fetch the full content of a URL as markdown. Use this when you already have a URL.
 

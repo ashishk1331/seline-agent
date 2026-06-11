@@ -1,5 +1,7 @@
 from docstring_parser import parse
+from string import Template
 from ..logger import log
+from ..gateway.status import GATEWAY_STATUS
 
 TOOLS = []
 TOOLS_MAP = {}
@@ -12,7 +14,7 @@ TYPE_MAP = {
 INPUT_TYPES = {}
 
 
-def register_tool(max_chars=1000, mask_after_use=False):
+def register_tool(max_chars=1000, mask_after_use=False, status_message=None):
     def decorator(func):
         """A decorator to mark a function as a tool."""
         func.is_tool = True
@@ -43,8 +45,10 @@ def register_tool(max_chars=1000, mask_after_use=False):
             }
         )
 
-        def wrapper(*args, **kwargs):
+        async def wrapper(*args, **kwargs):
             log.info(f"[bold cyan]{func.__name__}[/] args={args} kwargs={kwargs}")
+            if status_message: 
+                await GATEWAY_STATUS.update(Template(status_message).safe_substitute(**kwargs))
             result = str(func(*args, **kwargs))
             if max_chars > -1 and len(result) > max_chars:
                 result = result[:max_chars] + "... [truncated]"

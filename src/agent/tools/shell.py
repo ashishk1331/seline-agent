@@ -3,7 +3,7 @@ from ..logger import log
 import subprocess as SP
 
 
-@register_tool()
+@register_tool(status_message="Running $command")
 def run_command(command):
     """Run a shell command and return its output.
 
