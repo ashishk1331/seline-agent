@@ -11,12 +11,6 @@ BASIC_PAYLOAD = {
     "temperature": CONFIG.TEMPERATURE,
 }
 
-COMPACTION_PAYLOAD = {
-    "model": CONFIG.AUXILIARY_MODEL_NAME,
-    "max_tokens": CONFIG.AUXILIARY_MAX_TOKENS,
-    "temperature": CONFIG.TEMPERATURE,
-}
-
 TINYFISH_HEADERS = {
     "X-API-Key": str(CONFIG.TINYFISH_API_KEY),
     "Content-Type": "application/json",

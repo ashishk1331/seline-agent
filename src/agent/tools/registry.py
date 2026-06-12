@@ -47,8 +47,10 @@ def register_tool(max_chars=1000, mask_after_use=False, status_message=None):
 
         async def wrapper(*args, **kwargs):
             log.info(f"[bold cyan]{func.__name__}[/] args={args} kwargs={kwargs}")
-            if status_message: 
-                await GATEWAY_STATUS.update(Template(status_message).safe_substitute(**kwargs))
+            if status_message:
+                await GATEWAY_STATUS.update(
+                    Template(status_message).safe_substitute(**kwargs)
+                )
             result = str(func(*args, **kwargs))
             if max_chars > -1 and len(result) > max_chars:
                 result = result[:max_chars] + "... [truncated]"

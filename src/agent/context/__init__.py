@@ -1,6 +1,6 @@
 from ..prompts import get_system_prompt, get_compaction_prompt
 from ..config import CONFIG
-from ..constants import HEADERS, COMPACTION_PAYLOAD
+from ..constants import HEADERS, BASIC_PAYLOAD
 from ..api import fetch
 from ..logger import log
 from .session import Session
@@ -17,27 +17,37 @@ class ContextManager(Session):
             {"role": "system", "content": get_compaction_prompt()}
         ]
         self.max_tokens = CONFIG.MAX_CONTEXT_TOKENS
-        self.current_tokens = 0
+        self.current_tokens = self._retrive_consumption().get("current_tokens", 0)
 
-    def append(self, message, usage=None):
+    async def append(self, message, usage=None):
         self.context.append(message)
         if usage:
             self.current_tokens = usage["total_tokens"]
-            self.detect_and_compact()
+            await self.detect_and_compact()
         self._append_message_to_session(message)
+        self._dump_consumption(self.get_consumption())
 
     def get_context(self):
         return self.context
 
+    def _in_words(self, number):
+        if number >= 1_000_000:
+            return f"{round(number / 1_000_000, 1)}M"
+        elif number >= 1_000:
+            return f"{round(number / 1_000, 1)}K"
+        else:
+            return str(number)
+
     def get_consumption(self):
         return {
             "current_tokens": self.current_tokens,
-            "current_tokens_in_words": f"{round(self.current_tokens / 1_000, 1)}K"
-            if self.current_tokens >= 1_000
-            else str(self.current_tokens),
+            "current_tokens_in_words": self._in_words(self.current_tokens),
             "max_tokens": self.max_tokens,
-            "max_tokens_in_words": f"{self.max_tokens // 1_000}K",
+            "max_tokens_in_words": self._in_words(self.max_tokens),
             "remaining_tokens": self.max_tokens - self.current_tokens,
+            "remaining_tokens_in_words": self._in_words(
+                self.max_tokens - self.current_tokens
+            ),
             "percentage_used": round((self.current_tokens / self.max_tokens) * 100, 2),
         }
 
@@ -52,11 +62,11 @@ class ContextManager(Session):
             ironed.append(f"[{m['role']}] {content}")
         return "\n".join(ironed)
 
-    def compaction(self, messages):
-        data = fetch(
+    async def compaction(self, messages):
+        data = await fetch(
             CONFIG.OPENROUTER_URL,
             headers=HEADERS,
-            payload=COMPACTION_PAYLOAD | {"messages": messages},
+            payload=BASIC_PAYLOAD | {"messages": messages},
         )
 
         if not data:
@@ -67,7 +77,7 @@ class ContextManager(Session):
         usage = data["usage"]
         return summary, usage
 
-    def detect_and_compact(self):
+    async def detect_and_compact(self):
         if self.current_tokens < self.max_tokens * CONFIG.COMPACTION_THRESHOLD:
             return
 
@@ -83,7 +93,7 @@ class ContextManager(Session):
         previous_messages = self.context[1 : -CONFIG.COMPACTION_RECENT_N]
         prev_token_count = self.current_tokens
 
-        summary, usage = self.compaction(
+        summary, usage = await self.compaction(
             self.compaction_context
             + [{"role": "user", "content": self.messages_iron(previous_messages)}]
         )
@@ -106,6 +116,7 @@ class ContextManager(Session):
             self.current_tokens = usage["total_tokens"]
 
         self._overwrite_messages_in_session(self.context[1:])
+        self._dump_consumption(self.get_consumption())
 
         log.info(
             f"[CONTEXT] Compaction completed. {prev_token_count} -> {self.current_tokens}"

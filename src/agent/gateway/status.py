@@ -21,7 +21,9 @@ class Status:
 
     async def start(self):
         if self._update and self._update.message:
-            self._message = await self._update.message.reply_text(random.choice(THINKING_PHRASES))
+            self._message = await self._update.message.reply_text(
+                random.choice(THINKING_PHRASES)
+            )
 
     async def stop(self):
         if self._message:

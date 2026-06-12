@@ -18,7 +18,7 @@ async def complete(message, max_tool_calls=CONFIG.MAX_TOOL_CALLS):
         return
 
     if message is not None:
-        context.append({"role": "user", "content": message})
+        await context.append({"role": "user", "content": message})
 
     data = await fetch(
         CONFIG.OPENROUTER_URL,
@@ -34,14 +34,14 @@ async def complete(message, max_tool_calls=CONFIG.MAX_TOOL_CALLS):
     usage = data["usage"]
 
     if message.get("tool_calls"):
-        context.append(message, usage)
+        await context.append(message, usage)
         for tool_call in message["tool_calls"]:
             name = tool_call["function"]["name"]
             args = J.loads(tool_call["function"]["arguments"])
 
             result = await TOOLS_MAP[name](**args)
 
-            context.append(
+            await context.append(
                 {
                     "role": "tool",
                     "tool_call_id": tool_call["id"],
@@ -50,7 +50,9 @@ async def complete(message, max_tool_calls=CONFIG.MAX_TOOL_CALLS):
             )
         return await complete(None, max_tool_calls - 1)
     else:
-        context.append({"role": "assistant", "content": message["content"]}, usage)
+        await context.append(
+            {"role": "assistant", "content": message["content"]}, usage
+        )
         log.info(f"[bold green]Assistant[/]: {message['content']}")
 
     return message["content"]

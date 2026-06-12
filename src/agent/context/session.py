@@ -16,11 +16,17 @@ class Session:
     def last_session_id(self):
         return CONFIG.WORKSPACE_DIR / "sessions" / "last_session_id.txt"
 
+    @property
+    def session_consumption_file_path(self):
+        return CONFIG.WORKSPACE_DIR / "sessions" / f"{self.session_id}_consumption.json"
+
     def _initialize(self):
         CONFIG.WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
         (CONFIG.WORKSPACE_DIR / "sessions").mkdir(parents=True, exist_ok=True)
         if not self.session_file_path.exists():
             self.session_file_path.touch()
+        if not self.session_consumption_file_path.exists():
+            self.session_consumption_file_path.touch()
 
         self.last_session_id.write_text(self.session_id)
 
@@ -44,3 +50,16 @@ class Session:
     def _load_messages_from_session(self):
         with open(self.session_file_path, "r") as file:
             return [J.loads(line) for line in file if line.strip()]
+
+    def _dump_consumption(self, consumption):
+        with open(self.session_consumption_file_path, "w") as file:
+            J.dump(consumption, file)
+
+    def _retrive_consumption(self):
+        if self.session_consumption_file_path.exists():
+            with open(self.session_consumption_file_path, "r") as file:
+                try:
+                    return J.load(file)
+                except J.JSONDecodeError:
+                    return {}
+        return {}
