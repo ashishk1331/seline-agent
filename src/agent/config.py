@@ -28,7 +28,7 @@ class ConfigManager:
         self.MAX_TOOL_CALLS = int(OS.getenv("MAX_TOOL_CALLS", 5))
 
         # Paths
-        self.WORKSPACE_DIR = Path(__file__).parent.parent.parent / ".workspace"
+        self.WORKSPACE_DIR = Path(OS.getenv("WORKSPACE_DIR", Path.home())) / ".workspace"
 
     def _required(self, key: str) -> str:
         value = OS.getenv(key)
