@@ -1,0 +1,11 @@
+services:
+  seline-agent:
+    build: .
+    container_name: seline-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./workspace:/app/workspace
+    environment:
+      - WORKSPACE_DIR=/app/workspace
