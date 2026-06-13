@@ -2,6 +2,11 @@ import os as OS
 from pathlib import Path
 from rich.markdown import Markdown
 from .logger import console
+import re
+
+ALLOWLIST_PATTERN = re.compile(
+    r"^(@[a-zA-Z][a-zA-Z0-9_]{4,31})(,@[a-zA-Z][a-zA-Z0-9_]{4,31})*$"
+)
 
 
 class ConfigManager:
@@ -10,6 +15,13 @@ class ConfigManager:
         self.AI_PROVIDER = self._required("AI_PROVIDER")
         self.TINYFISH_API_KEY = self._required("TINYFISH_API_KEY")
         self.TELEGRAM_BOT_TOKEN = self._required("TELEGRAM_BOT_TOKEN")
+        self.TELEGRAM_ALLOWLIST = self._required(
+            "TELEGRAM_ALLOWLIST",
+            "Add comma-separated Telegram usernames to allow access to Seline. Example: @john_doe,@jane_doe",
+        )
+        self.TELEGRAM_ALLOWLIST_CLEANED = self._sanitize_telegram_allowlist(
+            self.TELEGRAM_ALLOWLIST
+        )
 
         if self.AI_PROVIDER == "OPENROUTER":
             self.OPENROUTER_API_KEY = self._required("OPENROUTER_API_KEY")
@@ -61,10 +73,14 @@ class ConfigManager:
 
         self.print_config()
 
-    def _required(self, key: str) -> str:
+    def _required(self, key: str, error_message: str | None = None) -> str:
         value = OS.getenv(key)
         if value is None:
-            raise ValueError(f"Environment variable '{key}' is required but not set.")
+            raise ValueError(
+                error_message
+                if error_message
+                else f"Environment variable '{key}' is required but not set.",
+            )
         return value
 
     def print_config(self):
@@ -80,8 +96,17 @@ class ConfigManager:
 | Workspace Dir | {self.WORKSPACE_DIR} |
 | Compaction Threshold | {round(self.COMPACTION_THRESHOLD * 100)}% |
 | Message Delay | [{self.MESSAGE_DEBOUNCE_DELAY}s, {self.MESSAGE_DEBOUNCE_MAX_DELAY}s] (step={self.MESSAGE_DEBOUNCE_JITTER}s)  |
+| Telegram Allowlist | {", ".join(self.TELEGRAM_ALLOWLIST_CLEANED)} |
 """)
         )
+
+    def _sanitize_telegram_allowlist(self, allowlist: str):
+        cleaned_list = allowlist.strip().replace(" ", "")
+        if not ALLOWLIST_PATTERN.match(cleaned_list):
+            raise ValueError(
+                f"Invalid TELEGRAM_ALLOWLIST format. Expected: @john_doe,@jane_doe. Got: {cleaned_list}"
+            )
+        return cleaned_list.split(",")
 
 
 CONFIG = ConfigManager()

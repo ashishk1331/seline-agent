@@ -18,6 +18,10 @@ from asyncio import CancelledError
 from ..provider import LLMRESOLVER
 
 
+def is_user_allowed(username: str) -> bool:
+    return username in CONFIG.TELEGRAM_ALLOWLIST_CLEANED
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if update.message:
@@ -39,10 +43,14 @@ async def consumption(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
-
+    
     if update.effective_user:
         sender = update.effective_user
         log.info(f"{sender.name} send: {update.message.text}")
+        if not is_user_allowed(sender.name):
+            await update.message.reply_text("You're not in allow list.")
+            return
+    
     else:
         log.info(f"Recieved: {update.message.text}")
 
