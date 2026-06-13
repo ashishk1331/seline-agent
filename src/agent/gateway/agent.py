@@ -9,7 +9,8 @@ from telegram.ext import (
 )
 from ..config import CONFIG
 from ..llm import complete
-from ..logger import log
+from ..logger import log, console
+from rich.markdown import Markdown
 from .status import GATEWAY_STATUS
 from ..llm import context as LLMContext
 from .debounce import DEBOUNCER
@@ -72,10 +73,19 @@ COMMANDS = [
 
 async def post_init(app):
     await app.bot.set_my_commands(COMMANDS)
+    console.print(
+        Markdown(
+            "\n".join(
+                [
+                    "Bot Commands ->",
+                    "| Command | Description |",
+                    "|------|-----|",
+                    *[f"| /{cmd} | {desc} |" for cmd, desc in COMMANDS],
+                ]
+            )
+        )
+    )
 
-    log.info("Bot commands updated.")
-    for cmd, desc in COMMANDS:
-        log.info(f"/{cmd} = {desc}")
 
 async def post_shutdown(app):
     await LLMRESOLVER.close()

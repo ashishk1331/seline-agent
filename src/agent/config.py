@@ -1,5 +1,8 @@
 import os as OS
 from pathlib import Path
+from rich.markdown import Markdown
+from .logger import console
+
 
 class ConfigManager:
     def __init__(self):
@@ -56,11 +59,29 @@ class ConfigManager:
             Path(OS.getenv("WORKSPACE_DIR", Path.home())) / ".workspace"
         )
 
+        self.print_config()
+
     def _required(self, key: str) -> str:
         value = OS.getenv(key)
         if value is None:
             raise ValueError(f"Environment variable '{key}' is required but not set.")
         return value
+
+    def print_config(self):
+        console.print(
+            Markdown(f"""
+| Key | Value |
+|------|-----|
+| Provider | {self.AI_PROVIDER} |
+| Provider LLM Url | {self.AI_PROVIDER_LLM_URL} |
+| Model Name | {self.MODEL_NAME} |
+| Max Tokens | {self.MAX_TOKENS} |
+| Context Window Size | {self.MAX_CONTEXT_TOKENS} |
+| Workspace Dir | {self.WORKSPACE_DIR} |
+| Compaction Threshold | {round(self.COMPACTION_THRESHOLD * 100)}% |
+| Message Delay | [{self.MESSAGE_DEBOUNCE_DELAY}s, {self.MESSAGE_DEBOUNCE_MAX_DELAY}s] (step={self.MESSAGE_DEBOUNCE_JITTER}s)  |
+""")
+        )
 
 
 CONFIG = ConfigManager()
