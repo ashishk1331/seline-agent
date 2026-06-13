@@ -1,11 +1,10 @@
 import json as J
-from .tools import TOOLS_MAP, TOOLS
-from .constants import HEADERS, BASIC_PAYLOAD
+from .tools import TOOLS_MAP
 from .config import CONFIG
 from .context import ContextManager
-from .api import fetch
 from .logger import log
 from asyncio import CancelledError
+from .provider import LLMRESOLVER
 
 context = ContextManager()
 
@@ -22,11 +21,7 @@ async def complete(message, max_tool_calls=CONFIG.MAX_TOOL_CALLS, _checkpoint=No
         if message is not None:
             await context.append({"role": "user", "content": message})
 
-        data = await fetch(
-            CONFIG.OPENROUTER_URL,
-            headers=HEADERS,
-            payload=BASIC_PAYLOAD | {"messages": context.get_context(), "tools": TOOLS},
-        )
+        data = await LLMRESOLVER.resolve(messages=context.get_context())
 
         if not data:
             log.error("No response from API.")

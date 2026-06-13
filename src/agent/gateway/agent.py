@@ -14,6 +14,7 @@ from .status import GATEWAY_STATUS
 from ..llm import context as LLMContext
 from .debounce import DEBOUNCER
 from asyncio import CancelledError
+from ..provider import LLMRESOLVER
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -76,10 +77,15 @@ async def post_init(app):
     for cmd, desc in COMMANDS:
         log.info(f"/{cmd} = {desc}")
 
+async def post_shutdown(app):
+    await LLMRESOLVER.close()
+    log.info("LLM resolver http client closed.")
+
 
 def telegram_loop():
     app = ApplicationBuilder().token(CONFIG.TELEGRAM_BOT_TOKEN).build()
     app.post_init = post_init
+    app.post_shutdown = post_shutdown
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("consumption", consumption))

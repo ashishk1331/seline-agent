@@ -1,22 +1,41 @@
 import os as OS
 from pathlib import Path
 
-
 class ConfigManager:
     def __init__(self):
         # Non-optional settings
-        self.OPENROUTER_API_KEY = self._required("OPENROUTER_API_KEY")
+        self.AI_PROVIDER = self._required("AI_PROVIDER")
         self.TINYFISH_API_KEY = self._required("TINYFISH_API_KEY")
         self.TELEGRAM_BOT_TOKEN = self._required("TELEGRAM_BOT_TOKEN")
+
+        if self.AI_PROVIDER == "OPENROUTER":
+            self.OPENROUTER_API_KEY = self._required("OPENROUTER_API_KEY")
+            self.OPENROUTER_URL = OS.getenv(
+                "OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions"
+            )
+
+            self.AI_PROVIDER_API_KEY = self.OPENROUTER_API_KEY
+            self.AI_PROVIDER_LLM_URL = self.OPENROUTER_URL
+
+        elif self.AI_PROVIDER == "SARVAM":
+            self.SARVAM_API_KEY = self._required("SARVAM_API_KEY")
+            self.SARVAM_URL = OS.getenv(
+                "SARVAM_URL", "https://api.sarvam.ai/v1/chat/completions"
+            )
+
+            self.AI_PROVIDER_API_KEY = self.SARVAM_API_KEY
+            self.AI_PROVIDER_LLM_URL = self.SARVAM_URL
+        else:
+            raise ValueError(
+                f"Pick 'OPENROUTER' or 'SARVAM' for AI_PROVIDER. Found {self.AI_PROVIDER} instead."
+            )
 
         # optional settings with defaults
         self.MODEL_NAME = OS.getenv("MODEL_NAME", "z-ai/glm-4.5-air:free")
         self.MAX_TOKENS = int(OS.getenv("MAX_TOKENS", 1000))
         self.MAX_CONTEXT_TOKENS = int(OS.getenv("MAX_CONTEXT_TOKENS", 131000))
         self.TEMPERATURE = float(OS.getenv("TEMPERATURE", 0.7))
-        self.OPENROUTER_URL = OS.getenv(
-            "OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions"
-        )
+
         self.TINYFISH_SEARCH_URL = OS.getenv(
             "TINYFISH_SEARCH_URL", "https://api.search.tinyfish.ai"
         )

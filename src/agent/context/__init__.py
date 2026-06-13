@@ -1,9 +1,8 @@
 from ..prompts import get_system_prompt, get_compaction_prompt
 from ..config import CONFIG
-from ..constants import HEADERS, BASIC_PAYLOAD
-from ..api import fetch
 from ..logger import log
 from .session import Session
+from ..provider import LLMRESOLVER
 
 
 class ContextManager(Session):
@@ -63,11 +62,7 @@ class ContextManager(Session):
         return "\n".join(ironed)
 
     async def compaction(self, messages):
-        data = await fetch(
-            CONFIG.OPENROUTER_URL,
-            headers=HEADERS,
-            payload=BASIC_PAYLOAD | {"messages": messages},
-        )
+        data = await LLMRESOLVER.resolve(messages=messages)
 
         if not data:
             log.error("No response from API during compaction.")
