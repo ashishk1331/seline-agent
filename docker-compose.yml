@@ -2,6 +2,7 @@ services:
   seline-agent:
     build: .
     container_name: seline-agent
+    image: seline-agent
     restart: unless-stopped
     env_file:
       - .env

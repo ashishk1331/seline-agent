@@ -1,6 +1,5 @@
 import json as J
 from .tools import TOOLS_MAP, TOOLS
-from rich.console import Console
 from .constants import HEADERS, BASIC_PAYLOAD
 from .config import CONFIG
 from .context import ContextManager
@@ -8,7 +7,6 @@ from .api import fetch
 from .logger import log
 from asyncio import CancelledError
 
-console = Console()
 context = ContextManager()
 
 

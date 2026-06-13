@@ -63,14 +63,18 @@ async def _process(update: Update, text: str):
         raise
 
 
+COMMANDS = [
+    ("start", "Start the bot"),
+    ("consumption", "Check token consumption"),
+]
+
+
 async def post_init(app):
-    await app.bot.set_my_commands(
-        [
-            ("start", "Start the bot"),
-            ("consumption", "Check token consumption"),
-        ]
-    )
+    await app.bot.set_my_commands(COMMANDS)
+
     log.info("Bot commands updated.")
+    for cmd, desc in COMMANDS:
+        log.info(f"/{cmd} = {desc}")
 
 
 def telegram_loop():
