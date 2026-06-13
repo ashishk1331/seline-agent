@@ -26,9 +26,16 @@ class ConfigManager:
         self.COMPACTION_THRESHOLD = float(OS.getenv("COMPACTION_THRESHOLD", 0.9))
         self.COMPACTION_RECENT_N = int(OS.getenv("COMPACTION_RECENT_N", 5))
         self.MAX_TOOL_CALLS = int(OS.getenv("MAX_TOOL_CALLS", 5))
+        self.MESSAGE_DEBOUNCE_DELAY = float(OS.getenv("MESSAGE_DEBOUNCE_DELAY", 1.0))
+        self.MESSAGE_DEBOUNCE_JITTER = float(OS.getenv("MESSAGE_DEBOUNCE_JITTER", 0.3))
+        self.MESSAGE_DEBOUNCE_MAX_DELAY = float(
+            OS.getenv("MESSAGE_DEBOUNCE_MAX_DELAY", 2.0)
+        )
 
         # Paths
-        self.WORKSPACE_DIR = Path(OS.getenv("WORKSPACE_DIR", Path.home())) / ".workspace"
+        self.WORKSPACE_DIR = (
+            Path(OS.getenv("WORKSPACE_DIR", Path.home())) / ".workspace"
+        )
 
     def _required(self, key: str) -> str:
         value = OS.getenv(key)

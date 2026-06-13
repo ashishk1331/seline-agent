@@ -31,7 +31,7 @@
 - [x] `/start` and `/help` command handlers
 - [ ] Webhook mode (production) vs polling (dev) toggle
 - [ ] Graceful shutdown on SIGINT/SIGTERM
-- [ ] Bot restart recovery — resume pending sessions on startup
+- [x] Bot restart recovery — resume pending sessions on startup
 - [ ] Health-check endpoint alongside webhook server
 
 > **Webhook vs polling** — polling is fine for dev; for production, use a webhook behind HTTPS
@@ -58,13 +58,13 @@
 > loop; returns partial output and cleanup summary on cancel.
 
 ### UX & Interaction Patterns
-- [ ] Typing indicator while agent is running (`send_chat_action`)
+- [x] Typing indicator while agent is running (`send_chat_action`)
 - [ ] Message chunking for long responses (Telegram's 4096-char limit)
-- [ ] Markdown / HTML formatting in replies
+- [x] Markdown / HTML formatting in replies
 - [ ] Inline keyboard buttons for confirmations and choices
 - [ ] Reply keyboard for common commands
 - [ ] Streaming responses via message edits (progressive output)
-- [ ] Progress messages for multi-step tool chains
+- [x] Progress messages for multi-step tool chains
 
 > **Typing indicator** — call `send_chat_action(ChatAction.TYPING)` at the start of every agent
 > turn; re-call every 4s for long-running tasks; users see the bot "thinking" rather than
@@ -151,7 +151,7 @@
 - [x] Sliding window compaction
 - [x] Token usage tracking
 - [x] Auxiliary model routing
-- [ ] Per-chat persistent context (SQLite or JSONL)
+- [x] Per-chat persistent context (SQLite or JSONL)
 - [ ] Tool result masking
 - [ ] Semantic memory
 - [ ] Entity extraction
@@ -246,8 +246,8 @@
 ---
 
 ## Multi-User & Deployment
-- [ ] Dockerized deployment
-- [ ] Environment-based config (no secrets in image)
+- [x] Dockerized deployment
+- [x] Environment-based config (no secrets in image)
 - [ ] Process supervisor (systemd / supervisord / Railway)
 - [ ] Auto-restart on crash
 - [ ] Rolling deploys without dropping active sessions

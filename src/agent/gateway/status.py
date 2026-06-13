@@ -6,7 +6,7 @@ import random
 
 class Status:
     def __init__(self):
-        self._update: Update | None = None
+        self._current_update: Update | None = None
         self._message: Message | None = None
 
     async def _update_message(self, message: str):
@@ -17,17 +17,23 @@ class Status:
                 log.error(f"Failed to update status message: {e}")
 
     def set_update(self, update: Update):
-        self._update = update
+        self._current_update = update
 
     async def start(self):
-        if self._update and self._update.message:
-            self._message = await self._update.message.reply_text(
+        if self._current_update and self._current_update.message:
+            await self.stop()
+            self._message = await self._current_update.message.reply_text(
                 random.choice(THINKING_PHRASES)
             )
 
     async def stop(self):
         if self._message:
-            await self._message.delete()
+            try:
+                await self._message.delete()
+            except Exception:
+                log.error("Message not found to delete.")
+            finally:
+                self._message = None
 
     async def update(self, message: str):
         if self._message:

@@ -77,6 +77,14 @@ class ContextManager(Session):
         usage = data["usage"]
         return summary, usage
 
+    def checkpoint(self) -> int:
+        return len(self.context)
+
+    def rollback(self, checkpoint: int):
+        if len(self.context) > checkpoint:
+            self.context = self.context[:checkpoint]
+            self._overwrite_messages_in_session(self.context[1:])
+
     async def detect_and_compact(self):
         if self.current_tokens < self.max_tokens * CONFIG.COMPACTION_THRESHOLD:
             return
@@ -121,3 +129,11 @@ class ContextManager(Session):
         log.info(
             f"[CONTEXT] Compaction completed. {prev_token_count} -> {self.current_tokens}"
         )
+
+    def popout_last_user_message(self):
+        x = None
+        for i in reversed(range(len(self.context))):
+            if self.context[i]["role"] == "user":
+                x = self.context.pop(i)
+        self._overwrite_messages_in_session(self.context[1:])
+        return x
