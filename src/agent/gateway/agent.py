@@ -16,6 +16,7 @@ from ..llm import context as LLMContext
 from .debounce import DEBOUNCER
 from asyncio import CancelledError
 from ..provider import LLMRESOLVER
+from .messages import _send_rich_text_message
 
 
 def is_user_allowed(username: str) -> bool:
@@ -43,14 +44,14 @@ async def consumption(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
-    
+
     if update.effective_user:
         sender = update.effective_user
         log.info(f"{sender.name} send: {update.message.text}")
         if not is_user_allowed(sender.name):
             await update.message.reply_text("You're not in allow list.")
             return
-    
+
     else:
         log.info(f"Recieved: {update.message.text}")
 
@@ -66,8 +67,16 @@ async def _process(update: Update, text: str):
 
         if response:
             await GATEWAY_STATUS.stop()
-            if update.message:
-                await update.message.reply_text(response, parse_mode=ParseMode.MARKDOWN)
+            if update.message and update.effective_chat:
+                result = await _send_rich_text_message(
+                    chat_id=update.effective_chat.id,
+                    markdown=response,
+                    reply_to=update.message.message_id,
+                )
+                if result is None:
+                    await update.message.reply_text(
+                        response, parse_mode=ParseMode.MARKDOWN
+                    )
     except CancelledError:
         await GATEWAY_STATUS.stop()
         raise
