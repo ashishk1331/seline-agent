@@ -9,7 +9,15 @@ class LLMResolver:
         self._provider = CONFIG.AI_PROVIDER
         self._provider_llm_url = CONFIG.AI_PROVIDER_LLM_URL
         self._provider_api_key = CONFIG.AI_PROVIDER_API_KEY
-        self._http_client = httpx.AsyncClient(headers=self._get_headers())
+        self._http_client = httpx.AsyncClient(
+            headers=self._get_headers(),
+            timeout=httpx.Timeout(
+                connect=10.0,
+                read=60.0,
+                write=10.0,
+                pool=5.0,
+            ),
+        )
 
     def _get_headers(self):
         return {

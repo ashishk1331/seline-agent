@@ -1,4 +1,4 @@
-from ..prompts import get_system_prompt, get_compaction_prompt
+from ..prompts import PROMPT_BASE
 from ..config import CONFIG
 from ..logger import log
 from .session import Session
@@ -9,11 +9,11 @@ class ContextManager(Session):
     def __init__(self):
         super().__init__()
         self.context = [
-            {"role": "system", "content": get_system_prompt()},
+            {"role": "system", "content": PROMPT_BASE.get_system_prompt()},
             *self._load_messages_from_session(),
         ]
         self.compaction_context = [
-            {"role": "system", "content": get_compaction_prompt()}
+            {"role": "system", "content": PROMPT_BASE.get_compaction_prompt()}
         ]
         self.max_tokens = CONFIG.MAX_CONTEXT_TOKENS
         self.current_tokens = self._retrive_consumption().get("current_tokens", 0)
@@ -106,7 +106,7 @@ class ContextManager(Session):
             return
 
         self.context = (
-            [{"role": "system", "content": get_system_prompt()}]
+            [{"role": "system", "content": PROMPT_BASE.get_system_prompt()}]
             + [
                 {
                     "role": "system",

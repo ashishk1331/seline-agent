@@ -3,6 +3,9 @@ from pathlib import Path
 from rich.markdown import Markdown
 from .logger import console
 import re
+from datetime import datetime
+import locale
+import platform
 
 ALLOWLIST_PATTERN = re.compile(
     r"^(@[a-zA-Z][a-zA-Z0-9_]{4,31})(,@[a-zA-Z][a-zA-Z0-9_]{4,31})*$"
@@ -66,6 +69,14 @@ class ConfigManager:
             Path(OS.getenv("WORKSPACE_DIR", Path.home())) / ".workspace"
         )
 
+        # env details
+        self.DATE = datetime.now().strftime("%Y-%m-%d")
+        self.TIME = datetime.now().strftime("%H:%M:%S")
+        self.PLATFORM = f"{platform.system()} {platform.release()}"
+        self.PYTHON_VERSION = platform.python_version()
+        self.TIMEZONE = datetime.now().astimezone().tzname()
+        self.LOCALE = locale.getdefaultlocale()[0] or "unknown"
+
         self.print_config()
 
     def _required(self, key: str, error_message: str | None = None) -> str:
@@ -92,6 +103,12 @@ class ConfigManager:
 | Compaction Threshold | {round(self.COMPACTION_THRESHOLD * 100)}% |
 | Message Delay | [{self.MESSAGE_DEBOUNCE_DELAY}s, {self.MESSAGE_DEBOUNCE_MAX_DELAY}s] (step={self.MESSAGE_DEBOUNCE_JITTER}s)  |
 | Telegram Allowlist | {", ".join(self.TELEGRAM_ALLOWLIST_CLEANED)} |
+| Date | {self.DATE} |
+| Time | {self.TIME} |
+| Platform | {self.PLATFORM} |
+| Python Version | {self.PYTHON_VERSION} |
+| Timezone | {self.TIMEZONE} |
+| Locale | {self.LOCALE} |
 """)
         )
 

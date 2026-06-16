@@ -17,6 +17,7 @@ from .debounce import DEBOUNCER
 from asyncio import CancelledError
 from ..provider import LLMRESOLVER
 from .messages import _send_rich_text_message
+from .error import handle_error
 
 
 def is_user_allowed(username: str) -> bool:
@@ -71,7 +72,6 @@ async def _process(update: Update, text: str):
                 result = await _send_rich_text_message(
                     chat_id=update.effective_chat.id,
                     markdown=response,
-                    reply_to=update.message.message_id,
                 )
                 if result is None:
                     await update.message.reply_text(
@@ -80,6 +80,8 @@ async def _process(update: Update, text: str):
     except CancelledError:
         await GATEWAY_STATUS.stop()
         raise
+    except Exception as err:
+        await handle_error(update, err)
 
 
 COMMANDS = [
