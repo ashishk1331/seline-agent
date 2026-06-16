@@ -12,6 +12,7 @@ PROVIDER_URLS = {
     "OPENROUTER": "https://openrouter.ai/api/v1/chat/completions",
     "SARVAM": "https://api.sarvam.ai/v1/chat/completions",
     "NVIDIA": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "CEREBRAS": "https://api.cerebras.ai/v1/chat/completions",
 }
 
 
