@@ -8,6 +8,12 @@ ALLOWLIST_PATTERN = re.compile(
     r"^(@[a-zA-Z][a-zA-Z0-9_]{4,31})(,@[a-zA-Z][a-zA-Z0-9_]{4,31})*$"
 )
 
+PROVIDER_URLS = {
+    "OPENROUTER": "https://openrouter.ai/api/v1/chat/completions",
+    "SARVAM": "https://api.sarvam.ai/v1/chat/completions",
+    "NVIDIA": "https://integrate.api.nvidia.com/v1/chat/completions",
+}
+
 
 class ConfigManager:
     def __init__(self):
@@ -23,27 +29,15 @@ class ConfigManager:
             self.TELEGRAM_ALLOWLIST
         )
 
-        if self.AI_PROVIDER == "OPENROUTER":
-            self.OPENROUTER_API_KEY = self._required("OPENROUTER_API_KEY")
-            self.OPENROUTER_URL = OS.getenv(
-                "OPENROUTER_URL", "https://openrouter.ai/api/v1/chat/completions"
-            )
-
-            self.AI_PROVIDER_API_KEY = self.OPENROUTER_API_KEY
-            self.AI_PROVIDER_LLM_URL = self.OPENROUTER_URL
-
-        elif self.AI_PROVIDER == "SARVAM":
-            self.SARVAM_API_KEY = self._required("SARVAM_API_KEY")
-            self.SARVAM_URL = OS.getenv(
-                "SARVAM_URL", "https://api.sarvam.ai/v1/chat/completions"
-            )
-
-            self.AI_PROVIDER_API_KEY = self.SARVAM_API_KEY
-            self.AI_PROVIDER_LLM_URL = self.SARVAM_URL
-        else:
+        if self.AI_PROVIDER not in PROVIDER_URLS:
             raise ValueError(
                 f"Pick 'OPENROUTER' or 'SARVAM' for AI_PROVIDER. Found {self.AI_PROVIDER} instead."
             )
+
+        self.AI_PROVIDER_API_KEY = self._required(f"{self.AI_PROVIDER}_API_KEY")
+        self.AI_PROVIDER_LLM_URL = OS.getenv(
+            f"{self.AI_PROVIDER}_URL", PROVIDER_URLS[self.AI_PROVIDER]
+        )
 
         # optional settings with defaults
         self.MODEL_NAME = OS.getenv("MODEL_NAME", "z-ai/glm-4.5-air:free")
