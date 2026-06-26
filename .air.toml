@@ -1,0 +1,17 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/agent ./cmd/agent"
+bin = "tmp/agent"
+full_bin = "tmp/agent"
+include_ext = ["go", "md"]
+exclude_dir = ["tmp", "vendor", "node_modules", "src", "workspace", ".workspace"]
+delay = 500
+stop_on_error = true
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"

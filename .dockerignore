@@ -1,9 +1,8 @@
-.venv
-.ruff_cache
 .git
 .env
-__pycache__
-*.pyc
 .vscode
 .workspace
+workspace
+tmp
+bin
 sample_request.txt

@@ -6,7 +6,22 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    volumes:
-      - ./workspace:/app/workspace
     environment:
+      # The agent appends ".workspace" to WORKSPACE_DIR, so sessions live under
+      # /app/workspace/.workspace/sessions (inside the named volume below).
       - WORKSPACE_DIR=/app/workspace
+      # Low-memory tuning. GOGC=50 makes the GC run sooner (less heap, a bit
+      # more CPU). GOMEMLIMIT is a soft cap kept just under mem_limit so the GC
+      # reclaims before the kernel OOM-kills the container.
+      - GOGC=50
+      - GOMEMLIMIT=100MiB
+    # Hard memory cap. Raise this (and GOMEMLIMIT) if you see exit code 137.
+    mem_limit: 128m
+    volumes:
+      # Named volume — Docker initializes it with the image's /app/workspace
+      # ownership (user "seline"), so the non-root container can write to it.
+      # This avoids the bind-mount "permission denied" problem.
+      - seline-workspace:/app/workspace
+
+volumes:
+  seline-workspace:

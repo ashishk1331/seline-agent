@@ -1,16 +1,17 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+# Go build artifacts
+/tmp/
+/bin/
+agent
+*.exe
+*.test
+*.out
 
-# Virtual environments
-.venv
-
+# Environment
 .env
 
+# Workspace / sessions (runtime state)
 .workspace/*
-sample_request.txt
+workspace/
 .sessions
+
+sample_request.txt
