@@ -1,7 +1,6 @@
 # Go build artifacts
 /tmp/
 /bin/
-agent
 *.exe
 *.test
 *.out
